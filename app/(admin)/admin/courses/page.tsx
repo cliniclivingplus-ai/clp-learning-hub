@@ -8,19 +8,21 @@ export const metadata = { title: "Courses" };
 export default async function AdminCoursesPage() {
   const supabase = await createClient();
 
-  const { data: courses } = await supabase
-    .from("courses")
-    .select(
-      "id, slug, title, category, published, created_at, instructor_id, created_by, " +
-      "creator:patients!courses_created_by_fkey (name, email), modules(id)"
-    )
-    .order("created_at", { ascending: false });
-
-  const { data: instructors } = await supabase
-    .from("patients")
-    .select("id, name, email")
-    .eq("role", "instructor")
-    .order("name");
+  // Independent tables, fetched together instead of one after another.
+  const [{ data: courses }, { data: instructors }] = await Promise.all([
+    supabase
+      .from("courses")
+      .select(
+        "id, slug, title, category, published, created_at, instructor_id, created_by, " +
+        "creator:patients!courses_created_by_fkey (name, email), modules(id)"
+      )
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("patients")
+      .select("id, name, email")
+      .eq("role", "instructor")
+      .order("name"),
+  ]);
 
   const total = courses?.length ?? 0;
 

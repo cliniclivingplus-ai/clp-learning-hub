@@ -10,6 +10,17 @@ const isProtected = (pathname: string) =>
   PATIENT_ROUTES.some((r) => pathname.startsWith(r));
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // The catalog, course pages, /about, /verify and so on need no session at
+  // all - every one of them was paying for a Supabase auth round trip on
+  // every load regardless. Skip the network call entirely when nothing here
+  // needs it.
+  const needsAuthCheck = isProtected(pathname) || pathname === "/login" || pathname === "/signup";
+  if (!needsAuthCheck) {
+    return NextResponse.next({ request });
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -18,7 +29,7 @@ export async function middleware(request: NextRequest) {
   // closed on anything that needs a session, and let public pages through.
   if (!supabaseUrl || !supabaseKey) {
     console.error("Supabase environment variables are missing; auth gating is unavailable.");
-    if (isProtected(request.nextUrl.pathname)) {
+    if (isProtected(pathname)) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
     return NextResponse.next({ request });
@@ -41,7 +52,6 @@ export async function middleware(request: NextRequest) {
     }
   );
   const { data: { user } } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
 
   const getRole = async () => {
     if (!user) return null;

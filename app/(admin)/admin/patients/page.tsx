@@ -32,28 +32,28 @@ export default function AdminPeoplePage() {
 
   const fetchPeople = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("patients")
-      .select("id, name, email, access_type, role, created_at")
-      .in("role", ["patient", "instructor"])
-      .order("created_at", { ascending: false });
+    // Three independent tables - fetched together, not one after another.
+    const [{ data }, { data: courseRows }, { data: enrollRows }] = await Promise.all([
+      supabase
+        .from("patients")
+        .select("id, name, email, access_type, role, created_at")
+        .in("role", ["patient", "instructor"])
+        .order("created_at", { ascending: false }),
+      // How many courses each person wrote, so their credit can be protected.
+      supabase.from("courses").select("created_by"),
+      // Which categories each learner is actually in right now - from real
+      // enrollments (pass-granted or approved), not access_type, since the
+      // tier alone says nothing about which subjects someone is enrolled in.
+      supabase.from("enrollments").select("patient_id, courses (category)").in("status", ["active", "completed"]),
+    ]);
     setPeople((data as Person[]) || []);
 
-    // How many courses each person wrote, so their credit can be protected.
-    const { data: courseRows } = await supabase.from("courses").select("created_by");
     const counts: Record<string, number> = {};
     for (const row of (courseRows as any[]) || []) {
       if (row.created_by) counts[row.created_by] = (counts[row.created_by] ?? 0) + 1;
     }
     setAuthored(counts);
 
-    // Which categories each learner is actually in right now - from real
-    // enrollments (pass-granted or approved), not access_type, since the
-    // tier alone says nothing about which subjects someone is enrolled in.
-    const { data: enrollRows } = await supabase
-      .from("enrollments")
-      .select("patient_id, courses (category)")
-      .in("status", ["active", "completed"]);
     const byPerson: Record<string, Set<string>> = {};
     for (const row of (enrollRows as any[]) || []) {
       const category = row.courses?.category;

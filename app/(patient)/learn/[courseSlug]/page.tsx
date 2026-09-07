@@ -46,13 +46,15 @@ export default async function LearnCoursePage({ params }: { params: Promise<{ co
   if (!enrollment) redirect("/my-learning");
   const isReviewing = enrollment.status === "completed";
 
-  const { data: course } = await supabase.from("courses")
-    .select(`id, title, slug, modules (id, title, order, lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id))`)
-    .eq("id", courseRef.id).single();
+  // Independent once the enrollment exists - no reason to pay for two round
+  // trips in series when neither query needs the other's result.
+  const [{ data: course }, { data: progress }] = await Promise.all([
+    supabase.from("courses")
+      .select(`id, title, slug, modules (id, title, order, lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id))`)
+      .eq("id", courseRef.id).single(),
+    supabase.from("lesson_progress").select("lesson_id, completed").eq("enrollment_id", enrollment.id),
+  ]);
   if (!course) notFound();
-
-  const { data: progress } = await supabase.from("lesson_progress")
-    .select("lesson_id, completed").eq("enrollment_id", enrollment.id);
   const completedIds = new Set((progress || []).filter(p => p.completed).map(p => p.lesson_id));
 
   const modules = ((course.modules as any[]) || []).sort((a, b) => a.order - b.order).map(m => ({
@@ -71,20 +73,21 @@ export default async function LearnCoursePage({ params }: { params: Promise<{ co
     if (firstIncomplete) break;
   }
 
-  // Fetch module quizzes and assessments
+  // Module quizzes, assessments and this learner's attempts - three
+  // independent lookups, run together instead of one after another.
   const moduleIds = modules.map(m => m.id);
-  const { data: moduleQuizzes } = await supabase.from("quizzes")
-    .select("id, title, module_id, quiz_questions(id, question, question_type, options, correct_answer, image_path)")
-    .in("module_id", moduleIds);
-
-  const { data: assessments } = await supabase.from("assessments")
-    .select("id, title, instructions, pass_threshold, module_id, assessment_questions(id, question, question_type, options, correct_answer, order)")
-    .in("module_id", moduleIds);
-
-  const { data: assessmentAttempts } = await supabase.from("assessment_attempts")
-    .select("assessment_id, score, passed, attempted_at")
-    .eq("patient_id", patient?.id)
-    .order("attempted_at", { ascending: false });
+  const [{ data: moduleQuizzes }, { data: assessments }, { data: assessmentAttempts }] = await Promise.all([
+    supabase.from("quizzes")
+      .select("id, title, module_id, quiz_questions(id, question, question_type, options, correct_answer, image_path)")
+      .in("module_id", moduleIds),
+    supabase.from("assessments")
+      .select("id, title, instructions, pass_threshold, module_id, assessment_questions(id, question, question_type, options, correct_answer, order)")
+      .in("module_id", moduleIds),
+    supabase.from("assessment_attempts")
+      .select("assessment_id, score, passed, attempted_at")
+      .eq("patient_id", patient?.id)
+      .order("attempted_at", { ascending: false }),
+  ]);
 
   return (
     <div className="p-5 sm:p-8 max-w-3xl">

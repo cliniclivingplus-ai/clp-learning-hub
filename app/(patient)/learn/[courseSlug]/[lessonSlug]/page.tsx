@@ -64,17 +64,24 @@ export default async function LessonPage({ params }: { params: Promise<{ courseS
   const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
   const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
 
-  const { data: progress } = await supabase.from("lesson_progress")
-    .select("lesson_id, completed").eq("enrollment_id", enrollment.id);
+  // Four independent lookups, all keyed off enrollment.id/lesson.id which are
+  // already known - run together rather than one round trip after another.
+  const [{ data: progress }, { data: quiz }, { data: assignment }, { data: comments }] = await Promise.all([
+    supabase.from("lesson_progress").select("lesson_id, completed").eq("enrollment_id", enrollment.id),
+    adminSupabase.from("quizzes")
+      .select("id, title, quiz_questions(id, question, question_type, options, correct_answer, image_path)")
+      .eq("lesson_id", lesson.id).maybeSingle(),
+    adminSupabase.from("assignments").select("id, title, prompt").eq("lesson_id", lesson.id).maybeSingle(),
+    adminSupabase
+      .from("lesson_comments")
+      .select("id, body, created_at, parent_id, patient_id, patients (name, role)")
+      .eq("lesson_id", lesson.id)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+  ]);
+
   const completedIds = new Set((progress || []).filter((p: any) => p.completed).map((p: any) => p.lesson_id));
   const isCompleted = completedIds.has(lesson.id);
-
-  const { data: quiz } = await adminSupabase.from("quizzes")
-    .select("id, title, quiz_questions(id, question, question_type, options, correct_answer, image_path)")
-    .eq("lesson_id", lesson.id).maybeSingle();
-
-  const { data: assignment } = await adminSupabase.from("assignments")
-    .select("id, title, prompt").eq("lesson_id", lesson.id).maybeSingle();
 
   let existingSubmission = null;
   if (assignment) {
@@ -83,13 +90,6 @@ export default async function LessonPage({ params }: { params: Promise<{ courseS
       .eq("patient_id", patient?.id).eq("assignment_id", assignment.id).maybeSingle();
     existingSubmission = sub;
   }
-
-  const { data: comments } = await adminSupabase
-    .from("lesson_comments")
-    .select("id, body, created_at, parent_id, patient_id, patients (name, role)")
-    .eq("lesson_id", lesson.id)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true });
 
   return (
     <div className="p-5 sm:p-6 max-w-4xl">

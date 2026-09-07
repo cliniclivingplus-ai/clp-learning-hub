@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
 export default function LoginPage() {
   const supabase = createClient();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,13 +29,12 @@ export default function LoginPage() {
       .eq("auth_user_id", user.id)
       .single();
 
-    if (patient?.role === "admin") {
-      window.location.href = "/admin";
-    } else if (patient?.role === "instructor") {
-      window.location.href = "/instructor";
-    } else {
-      window.location.href = "/my-learning";
-    }
+    // router.push, not a full window.location reload - the whole app's JS
+    // is already loaded, no reason to throw it away and re-download it just
+    // to land on the next page.
+    const destination = patient?.role === "admin" ? "/admin" : patient?.role === "instructor" ? "/instructor" : "/my-learning";
+    router.push(destination);
+    router.refresh();
   };
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
