@@ -229,6 +229,7 @@ export default function LessonPlayer({
         .prose-content ol { padding-left: 20px; list-style-type: decimal; margin: 8px 0; }
         .prose-content li { margin: 4px 0; }
         .prose-content strong { font-weight: 700; color: var(--foreground); }
+        .prose-content a { color: var(--accent-blue); text-decoration: underline; }
         .prose-content em { font-style: italic; }
         .prose-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
       `}</style>

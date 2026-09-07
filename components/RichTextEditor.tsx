@@ -76,6 +76,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
         .rich-editor-content ol { padding-left: 20px; list-style-type: decimal; margin: 8px 0; }
         .rich-editor-content li { margin: 4px 0; }
         .rich-editor-content strong { font-weight: 700; }
+        .rich-editor-content a { color: var(--accent-blue); text-decoration: underline; }
         .rich-editor-content em { font-style: italic; }
         .rich-editor-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
       `}</style>

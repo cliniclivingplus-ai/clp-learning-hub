@@ -75,6 +75,7 @@ export default function LessonPreview({
         .preview-prose ol { padding-left: 18px; list-style-type: decimal; margin: 6px 0; }
         .preview-prose li { margin: 3px 0; }
         .preview-prose strong { font-weight: 700; color: var(--foreground); }
+        .preview-prose a { color: var(--accent-blue); text-decoration: underline; }
         .preview-prose em { font-style: italic; }
         .preview-prose hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
       `}</style>
