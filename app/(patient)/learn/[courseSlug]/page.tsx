@@ -1,5 +1,5 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { ArrowLeft, ArrowRight, Check, PlayCircle } from "@phosphor-icons/react/ssr";
+import { ArrowLeft, ArrowRight, Check, PlayCircle, FilePdf } from "@phosphor-icons/react/ssr";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import ModuleAssessmentWrapper from "./ModuleAssessmentWrapper";
@@ -50,7 +50,7 @@ export default async function LearnCoursePage({ params }: { params: Promise<{ co
   // trips in series when neither query needs the other's result.
   const [{ data: course }, { data: progress }] = await Promise.all([
     supabase.from("courses")
-      .select(`id, title, slug, modules (id, title, order, lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id))`)
+      .select(`id, title, slug, modules (id, title, order, resource_url, resource_name, lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id))`)
       .eq("id", courseRef.id).single(),
     supabase.from("lesson_progress").select("lesson_id, completed").eq("enrollment_id", enrollment.id),
   ]);
@@ -137,6 +137,14 @@ export default async function LearnCoursePage({ params }: { params: Promise<{ co
                   {mod.lessons.filter((l: any) => completedIds.has(l.id)).length}/{mod.lessons.length}
                 </span>
               </div>
+              {mod.resource_url && (
+                <a href={mod.resource_url} target="_blank" rel="noopener"
+                  className="flex items-center gap-3 px-5 py-3 border-b"
+                  style={{ borderColor: "var(--border-light)", color: "var(--primary)" }}>
+                  <FilePdf size={16} weight="duotone" className="flex-shrink-0" />
+                  <span className="text-sm font-semibold">{mod.resource_name || "Module resource"}</span>
+                </a>
+              )}
               {mod.lessons.map((lesson: any, li: number) => {
                 const done = completedIds.has(lesson.id);
                 return (

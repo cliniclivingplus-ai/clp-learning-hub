@@ -6,9 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import QuizBuilder from "@/components/QuizBuilder";
 import AssessmentBuilder from "@/components/AssessmentBuilder";
+import ResourceUpload from "@/components/ResourceUpload";
 
 type Lesson = { id: string; title: string; slug: string; order: number; youtube_video_id: string };
-type Module = { id: string; title: string; order: number; lessons: Lesson[] };
+type Module = { id: string; title: string; order: number; resource_url: string | null; resource_name: string | null; lessons: Lesson[] };
 
 export default function LessonsPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = use(params);
@@ -25,7 +26,7 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
     const { data: courseData } = await supabase.from("courses").select("id, title, published").eq("id", courseId).single();
     setCourse(courseData);
     const { data: modulesData } = await supabase.from("modules")
-      .select("id, title, order, lessons(id, title, slug, order, youtube_video_id)")
+      .select("id, title, order, resource_url, resource_name, lessons(id, title, slug, order, youtube_video_id)")
       .eq("course_id", courseId).order("order");
     const sorted = (modulesData || []).map((m: any) => ({
       ...m, lessons: (m.lessons || []).sort((a: any, b: any) => a.order - b.order),
@@ -51,6 +52,11 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
   const handleDeleteLesson = async (lessonId: string) => {
     if (!confirm("Delete this lesson?")) return;
     await supabase.from("lessons").delete().eq("id", lessonId); fetchData();
+  };
+
+  const handleModuleResourceChange = async (moduleId: string, resource: { url: string | null; name: string | null }) => {
+    setModules(prev => prev.map(m => m.id === moduleId ? { ...m, resource_url: resource.url, resource_name: resource.name } : m));
+    await supabase.from("modules").update({ resource_url: resource.url, resource_name: resource.name }).eq("id", moduleId);
   };
 
   if (loading) return <div className="p-8 text-sm" style={{ color: "var(--foreground-muted)" }}>Loading...</div>;
@@ -114,6 +120,16 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
             ) : (
               <div className="px-5 py-4 text-sm" style={{ color: "var(--foreground-muted)" }}>No lessons yet.</div>
             )}
+
+            <div className="px-5 py-4 border-t" style={{ borderColor: "var(--border)" }}>
+              <ResourceUpload
+                label="Module resource"
+                prefix={`modules/${mod.id}`}
+                resourceUrl={mod.resource_url}
+                resourceName={mod.resource_name}
+                onChange={(resource) => handleModuleResourceChange(mod.id, resource)}
+              />
+            </div>
 
             {/* Module quiz and assessment */}
             {expandedModule === mod.id && (

@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { parseDriveFileId } from "@/lib/driveFileId";
 import LessonPreview from "@/components/LessonPreview";
+import ResourceUpload from "@/components/ResourceUpload";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { ssr: false });
 
@@ -25,10 +26,15 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
   const [driveInput, setDriveInput] = useState("");
   const [audioDriveInput, setAudioDriveInput] = useState("");
   const [notes, setNotes] = useState("");
+  const [resourceUrl, setResourceUrl] = useState<string | null>(null);
+  const [resourceName, setResourceName] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [moduleTitle, setModuleTitle] = useState("");
+  // No lesson id exists yet to scope the upload path to - a stable per-draft
+  // id keeps re-uploads from colliding without needing one.
+  const [draftId] = useState(() => crypto.randomUUID());
 
   const generateSlug = (text: string) =>
     text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -63,7 +69,7 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
         moduleId, title, slug, youtube_video_id: extractYoutubeId(youtubeId),
         drive_file_id: parseDriveFileId(driveInput),
         audio_file_id: parseDriveFileId(audioDriveInput),
-        notes,
+        notes, resource_url: resourceUrl, resource_name: resourceName,
       }),
     });
     const data = await res.json();
@@ -178,6 +184,16 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
             Use the toolbar to format content. Learners see this below the video.
           </p>
           <RichTextEditor value={notes} onChange={setNotes} placeholder="Type your lesson notes here. Use the toolbar above to add headings, bullet points, and more..." />
+        </div>
+
+        <div className="card p-6">
+          <ResourceUpload
+            label="Lesson resource"
+            prefix={`lessons/${draftId}`}
+            resourceUrl={resourceUrl}
+            resourceName={resourceName}
+            onChange={({ url, name }) => { setResourceUrl(url); setResourceName(name); }}
+          />
         </div>
 
         {error && <p className="text-xs" style={{ color: "var(--danger)" }}>{error}</p>}

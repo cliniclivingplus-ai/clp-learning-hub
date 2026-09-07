@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CheckCircle, FilePdf } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -20,6 +20,8 @@ interface LessonPlayerProps {
   /** An audio-only recording, served the same way. Shown only when there is no video. */
   audioFileId: string | null;
   notes: string | null;
+  resourceUrl: string | null;
+  resourceName: string | null;
   isCompleted: boolean;
   prevLesson: { slug: string; title: string } | null;
   nextLesson: { slug: string; title: string } | null;
@@ -38,7 +40,7 @@ declare global {
 }
 
 export default function LessonPlayer({
-  lessonId, enrollmentId, patientId, youtubeVideoId, driveFileId, audioFileId, notes, isCompleted,
+  lessonId, enrollmentId, patientId, youtubeVideoId, driveFileId, audioFileId, notes, resourceUrl, resourceName, isCompleted,
   prevLesson, nextLesson, courseSlug, totalLessons, currentIndex,
   quiz, assignment, existingSubmission, isReviewing = false,
 }: LessonPlayerProps) {
@@ -191,6 +193,15 @@ export default function LessonPlayer({
           <div className="prose-content text-sm leading-relaxed" style={{ color: "var(--foreground-secondary)" }}
             dangerouslySetInnerHTML={{ __html: notes }} />
         </div>
+      )}
+
+      {resourceUrl && (
+        <a href={resourceUrl} target="_blank" rel="noopener"
+          className="card p-4 mb-4 flex items-center gap-3"
+          style={{ color: "var(--primary)" }}>
+          <FilePdf size={22} weight="duotone" className="flex-shrink-0" />
+          <span className="text-sm font-semibold">{resourceName || "Download lesson resource"}</span>
+        </a>
       )}
 
       {quiz && quiz.questions.length > 0 && (

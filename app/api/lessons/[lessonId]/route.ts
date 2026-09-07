@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 // Whitelisted so a caller cannot rewrite module_id, order, or anything else by
 // spreading the request body into the update.
-const EDITABLE_FIELDS = ["title", "slug", "youtube_video_id", "drive_file_id", "audio_file_id", "notes", "order"] as const;
+const EDITABLE_FIELDS = ["title", "slug", "youtube_video_id", "drive_file_id", "audio_file_id", "notes", "order", "resource_url", "resource_name"] as const;
 
 /** Confirms the actor may manage the course this lesson belongs to. */
 async function authorize(lessonId: string) {
