@@ -66,7 +66,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ less
     const value = upstream.headers.get(header);
     if (value) headers.set(header, value);
   }
-  headers.set("Cache-Control", "private, no-store");
+  // Same reasoning as the video route: cache in the browser, never shared.
+  headers.set("Cache-Control", "private, max-age=3600");
 
   return new NextResponse(upstream.body, { status: upstream.status, headers });
 }

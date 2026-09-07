@@ -75,7 +75,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ less
     const value = upstream.headers.get(header);
     if (value) headers.set(header, value);
   }
-  headers.set("Cache-Control", "private, no-store");
+  // private, not no-store: seeking/replaying within the same session should
+  // hit the browser's own cache instead of round-tripping through Drive
+  // again for bytes it already has. Never shared/CDN-cached either way.
+  headers.set("Cache-Control", "private, max-age=3600");
 
   return new NextResponse(upstream.body, { status: upstream.status, headers });
 }
