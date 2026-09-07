@@ -8,10 +8,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import AssessmentBuilder from "@/components/AssessmentBuilder";
-import ResourceUpload from "@/components/ResourceUpload";
+import ResourceList, { type Resource } from "@/components/ResourceList";
 
 type Lesson = { id: string; title: string; slug: string; order: number; youtube_video_id: string; drive_file_id: string | null };
-type Module = { id: string; title: string; order: number; resource_url: string | null; resource_name: string | null; lessons: Lesson[] };
+type Module = { id: string; title: string; order: number; resources: Resource[]; lessons: Lesson[] };
 
 export default function LessonsPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = use(params);
@@ -34,11 +34,12 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
     setCourse(courseData);
     const { data: modulesData } = await supabase
       .from("modules")
-      .select("id, title, order, resource_url, resource_name, lessons(id, title, slug, order, youtube_video_id, drive_file_id)")
+      .select("id, title, order, resources(id, url, name, order_index), lessons(id, title, slug, order, youtube_video_id, drive_file_id)")
       .eq("course_id", courseId).order("order");
     const sorted = (modulesData || []).map((m: any) => ({
       ...m,
       lessons: (m.lessons || []).sort((a: any, b: any) => a.order - b.order),
+      resources: (m.resources || []).sort((a: any, b: any) => a.order_index - b.order_index),
     }));
     setModules(sorted);
     setLoading(false);
@@ -65,9 +66,8 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
     await supabase.from("lessons").delete().eq("id", lessonId); fetchData();
   };
 
-  const handleModuleResourceChange = async (moduleId: string, resource: { url: string | null; name: string | null }) => {
-    setModules(prev => prev.map(m => m.id === moduleId ? { ...m, resource_url: resource.url, resource_name: resource.name } : m));
-    await supabase.from("modules").update({ resource_url: resource.url, resource_name: resource.name }).eq("id", moduleId);
+  const handleModuleResourcesChange = (moduleId: string, resources: Resource[]) => {
+    setModules(prev => prev.map(m => m.id === moduleId ? { ...m, resources } : m));
   };
 
   const inputStyle = { borderColor: "var(--border)", background: "var(--background)", color: "var(--foreground)" };
@@ -304,12 +304,12 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
                   )}
 
                   <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border)" }}>
-                    <ResourceUpload
-                      label="Module resource"
+                    <ResourceList
+                      label="Module resources"
                       prefix={`modules/${mod.id}`}
-                      resourceUrl={mod.resource_url}
-                      resourceName={mod.resource_name}
-                      onChange={(resource) => handleModuleResourceChange(mod.id, resource)}
+                      moduleId={mod.id}
+                      resources={mod.resources}
+                      onChange={(resources) => handleModuleResourcesChange(mod.id, resources)}
                     />
                   </div>
 

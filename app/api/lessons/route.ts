@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const actor = await getActor();
   if (!actor) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const { moduleId, title, slug, youtube_video_id, drive_file_id, audio_file_id, notes, resource_url, resource_name } = await request.json();
+  const { moduleId, title, slug, youtube_video_id, drive_file_id, audio_file_id, notes } = await request.json();
   if (!moduleId || !title || !slug) {
     return NextResponse.json({ message: "moduleId, title and slug are required" }, { status: 400 });
   }
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from("lessons")
-    .insert({ module_id: moduleId, title, slug, youtube_video_id, drive_file_id, audio_file_id, notes, resource_url, resource_name, order: (count ?? 0) + 1 })
+    .insert({ module_id: moduleId, title, slug, youtube_video_id, drive_file_id, audio_file_id, notes, order: (count ?? 0) + 1 })
     .select("id")
     .single();
 

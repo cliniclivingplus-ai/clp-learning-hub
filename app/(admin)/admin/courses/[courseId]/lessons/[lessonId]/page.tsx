@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import QuizBuilder from "@/components/QuizBuilder";
 import AssignmentBuilder from "@/components/AssignmentBuilder";
 import LessonPreview from "@/components/LessonPreview";
-import ResourceUpload from "@/components/ResourceUpload";
+import ResourceList, { type Resource } from "@/components/ResourceList";
 import { parseDriveFileId } from "@/lib/driveFileId";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { ssr: false });
@@ -26,8 +26,7 @@ export default function EditLessonPage({ params }: { params: Promise<{ courseId:
   const [driveInput, setDriveInput] = useState("");
   const [audioDriveInput, setAudioDriveInput] = useState("");
   const [notes, setNotes] = useState("");
-  const [resourceUrl, setResourceUrl] = useState<string | null>(null);
-  const [resourceName, setResourceName] = useState<string | null>(null);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -41,13 +40,16 @@ export default function EditLessonPage({ params }: { params: Promise<{ courseId:
   };
 
   useEffect(() => {
-    supabase.from("lessons").select("*").eq("id", lessonId).single().then(({ data }) => {
+    Promise.all([
+      supabase.from("lessons").select("*").eq("id", lessonId).single(),
+      supabase.from("resources").select("id, url, name").eq("lesson_id", lessonId).order("order_index"),
+    ]).then(([{ data }, { data: res }]) => {
       if (data) {
         setTitle(data.title); setSlug(data.slug);
         setYoutubeId(data.youtube_video_id || ""); setDriveInput(data.drive_file_id || "");
         setAudioDriveInput(data.audio_file_id || ""); setNotes(data.notes || "");
-        setResourceUrl(data.resource_url || null); setResourceName(data.resource_name || null);
       }
+      setResources(res || []);
       setLoading(false);
     });
   }, [lessonId]);
@@ -61,7 +63,7 @@ export default function EditLessonPage({ params }: { params: Promise<{ courseId:
         title, slug, youtube_video_id: extractYoutubeId(youtubeId),
         drive_file_id: parseDriveFileId(driveInput),
         audio_file_id: parseDriveFileId(audioDriveInput),
-        notes, resource_url: resourceUrl, resource_name: resourceName,
+        notes,
       }),
     });
     const data = await res.json();
@@ -162,12 +164,12 @@ export default function EditLessonPage({ params }: { params: Promise<{ courseId:
         </div>
 
         <div className="card p-6">
-          <ResourceUpload
-            label="Lesson resource"
+          <ResourceList
+            label="Lesson resources"
             prefix={`lessons/${lessonId}`}
-            resourceUrl={resourceUrl}
-            resourceName={resourceName}
-            onChange={({ url, name }) => { setResourceUrl(url); setResourceName(name); }}
+            lessonId={lessonId}
+            resources={resources}
+            onChange={setResources}
           />
         </div>
 

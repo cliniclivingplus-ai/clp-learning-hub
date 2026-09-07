@@ -20,8 +20,7 @@ interface LessonPlayerProps {
   /** An audio-only recording, served the same way. Shown only when there is no video. */
   audioFileId: string | null;
   notes: string | null;
-  resourceUrl: string | null;
-  resourceName: string | null;
+  resources: { id: string; url: string; name: string }[];
   isCompleted: boolean;
   prevLesson: { slug: string; title: string } | null;
   nextLesson: { slug: string; title: string } | null;
@@ -40,7 +39,7 @@ declare global {
 }
 
 export default function LessonPlayer({
-  lessonId, enrollmentId, patientId, youtubeVideoId, driveFileId, audioFileId, notes, resourceUrl, resourceName, isCompleted,
+  lessonId, enrollmentId, patientId, youtubeVideoId, driveFileId, audioFileId, notes, resources, isCompleted,
   prevLesson, nextLesson, courseSlug, totalLessons, currentIndex,
   quiz, assignment, existingSubmission, isReviewing = false,
 }: LessonPlayerProps) {
@@ -195,13 +194,17 @@ export default function LessonPlayer({
         </div>
       )}
 
-      {resourceUrl && (
-        <a href={resourceUrl} target="_blank" rel="noopener"
-          className="card p-4 mb-4 flex items-center gap-3"
-          style={{ color: "var(--primary)" }}>
-          <FilePdf size={22} weight="duotone" className="flex-shrink-0" />
-          <span className="text-sm font-semibold">{resourceName || "Download lesson resource"}</span>
-        </a>
+      {resources.length > 0 && (
+        <div className="card p-4 mb-4 space-y-2">
+          {resources.map((r) => (
+            <a key={r.id} href={r.url} target="_blank" rel="noopener"
+              className="flex items-center gap-3"
+              style={{ color: "var(--primary)" }}>
+              <FilePdf size={20} weight="duotone" className="flex-shrink-0" />
+              <span className="text-sm font-semibold">{r.name}</span>
+            </a>
+          ))}
+        </div>
       )}
 
       {quiz && quiz.questions.length > 0 && (

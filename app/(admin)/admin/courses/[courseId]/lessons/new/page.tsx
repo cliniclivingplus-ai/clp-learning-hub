@@ -8,7 +8,6 @@ import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { parseDriveFileId } from "@/lib/driveFileId";
 import LessonPreview from "@/components/LessonPreview";
-import ResourceUpload from "@/components/ResourceUpload";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { ssr: false });
 
@@ -26,15 +25,10 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
   const [driveInput, setDriveInput] = useState("");
   const [audioDriveInput, setAudioDriveInput] = useState("");
   const [notes, setNotes] = useState("");
-  const [resourceUrl, setResourceUrl] = useState<string | null>(null);
-  const [resourceName, setResourceName] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [moduleTitle, setModuleTitle] = useState("");
-  // No lesson id exists yet to scope the upload path to - a stable per-draft
-  // id keeps re-uploads from colliding without needing one.
-  const [draftId] = useState(() => crypto.randomUUID());
 
   const generateSlug = (text: string) =>
     text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -69,13 +63,14 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
         moduleId, title, slug, youtube_video_id: extractYoutubeId(youtubeId),
         drive_file_id: parseDriveFileId(driveInput),
         audio_file_id: parseDriveFileId(audioDriveInput),
-        notes, resource_url: resourceUrl, resource_name: resourceName,
+        notes,
       }),
     });
     const data = await res.json();
     setLoading(false);
     if (!res.ok) { setError(data.message || "Failed to create lesson."); return; }
-    router.push(`${base}/courses/${courseId}/lessons`);
+    // Attachments need a real lesson id, so they're added on the edit page.
+    router.push(`${base}/courses/${courseId}/lessons/${data.id}`);
     router.refresh();
   };
 
@@ -186,15 +181,9 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
           <RichTextEditor value={notes} onChange={setNotes} placeholder="Type your lesson notes here. Use the toolbar above to add headings, bullet points, and more..." />
         </div>
 
-        <div className="card p-6">
-          <ResourceUpload
-            label="Lesson resource"
-            prefix={`lessons/${draftId}`}
-            resourceUrl={resourceUrl}
-            resourceName={resourceName}
-            onChange={({ url, name }) => { setResourceUrl(url); setResourceName(name); }}
-          />
-        </div>
+        <p className="text-xs px-1" style={{ color: "var(--foreground-muted)" }}>
+          You can attach PDFs or images once the lesson is saved.
+        </p>
 
         {error && <p className="text-xs" style={{ color: "var(--danger)" }}>{error}</p>}
 

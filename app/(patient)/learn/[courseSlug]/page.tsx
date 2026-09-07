@@ -50,7 +50,7 @@ export default async function LearnCoursePage({ params }: { params: Promise<{ co
   // trips in series when neither query needs the other's result.
   const [{ data: course }, { data: progress }] = await Promise.all([
     supabase.from("courses")
-      .select(`id, title, slug, modules (id, title, order, resource_url, resource_name, lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id))`)
+      .select(`id, title, slug, modules (id, title, order, resources(id, url, name, order_index), lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id))`)
       .eq("id", courseRef.id).single(),
     supabase.from("lesson_progress").select("lesson_id, completed").eq("enrollment_id", enrollment.id),
   ]);
@@ -58,7 +58,9 @@ export default async function LearnCoursePage({ params }: { params: Promise<{ co
   const completedIds = new Set((progress || []).filter(p => p.completed).map(p => p.lesson_id));
 
   const modules = ((course.modules as any[]) || []).sort((a, b) => a.order - b.order).map(m => ({
-    ...m, lessons: (m.lessons || []).sort((a: any, b: any) => a.order - b.order),
+    ...m,
+    lessons: (m.lessons || []).sort((a: any, b: any) => a.order - b.order),
+    resources: (m.resources || []).sort((a: any, b: any) => a.order_index - b.order_index),
   }));
 
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
@@ -137,14 +139,14 @@ export default async function LearnCoursePage({ params }: { params: Promise<{ co
                   {mod.lessons.filter((l: any) => completedIds.has(l.id)).length}/{mod.lessons.length}
                 </span>
               </div>
-              {mod.resource_url && (
-                <a href={mod.resource_url} target="_blank" rel="noopener"
+              {mod.resources.map((r: any) => (
+                <a key={r.id} href={r.url} target="_blank" rel="noopener"
                   className="flex items-center gap-3 px-5 py-3 border-b"
                   style={{ borderColor: "var(--border-light)", color: "var(--primary)" }}>
                   <FilePdf size={16} weight="duotone" className="flex-shrink-0" />
-                  <span className="text-sm font-semibold">{mod.resource_name || "Module resource"}</span>
+                  <span className="text-sm font-semibold">{r.name}</span>
                 </a>
-              )}
+              ))}
               {mod.lessons.map((lesson: any, li: number) => {
                 const done = completedIds.has(lesson.id);
                 return (

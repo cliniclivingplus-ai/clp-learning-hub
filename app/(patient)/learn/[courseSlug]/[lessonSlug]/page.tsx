@@ -46,7 +46,7 @@ export default async function LessonPage({ params }: { params: Promise<{ courseS
   const isReviewing = enrollment.status === "completed";
 
   const { data: course } = await supabase.from("courses")
-    .select(`id, title, slug, modules (id, title, order, lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id, drive_file_id, audio_file_id, notes, resource_url, resource_name))`)
+    .select(`id, title, slug, modules (id, title, order, lessons!lessons_module_id_fkey (id, title, slug, order, youtube_video_id, drive_file_id, audio_file_id, notes))`)
     .eq("id", courseRef.id).single();
   if (!course) notFound();
 
@@ -66,7 +66,7 @@ export default async function LessonPage({ params }: { params: Promise<{ courseS
 
   // Four independent lookups, all keyed off enrollment.id/lesson.id which are
   // already known - run together rather than one round trip after another.
-  const [{ data: progress }, { data: quiz }, { data: assignment }, { data: comments }] = await Promise.all([
+  const [{ data: progress }, { data: quiz }, { data: assignment }, { data: comments }, { data: resources }] = await Promise.all([
     supabase.from("lesson_progress").select("lesson_id, completed").eq("enrollment_id", enrollment.id),
     adminSupabase.from("quizzes")
       .select("id, title, quiz_questions(id, question, question_type, options, correct_answer, image_path)")
@@ -78,6 +78,7 @@ export default async function LessonPage({ params }: { params: Promise<{ courseS
       .eq("lesson_id", lesson.id)
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
+    supabase.from("resources").select("id, url, name").eq("lesson_id", lesson.id).order("order_index"),
   ]);
 
   const completedIds = new Set((progress || []).filter((p: any) => p.completed).map((p: any) => p.lesson_id));
@@ -110,8 +111,7 @@ export default async function LessonPage({ params }: { params: Promise<{ courseS
         driveFileId={lesson.drive_file_id}
         audioFileId={lesson.audio_file_id}
         notes={lesson.notes}
-        resourceUrl={lesson.resource_url}
-        resourceName={lesson.resource_name}
+        resources={resources || []}
         isCompleted={isCompleted}
         prevLesson={prevLesson ? { slug: prevLesson.slug, title: prevLesson.title } : null}
         nextLesson={nextLesson ? { slug: nextLesson.slug, title: nextLesson.title } : null}
