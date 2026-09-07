@@ -26,7 +26,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
     if (editor && value !== editor.getHTML()) {
       editor.commands.setContent(value || "");
     }
-  }, []);
+  }, [editor, value]);
 
   if (!editor) return null;
 
