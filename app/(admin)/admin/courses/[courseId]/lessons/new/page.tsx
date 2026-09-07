@@ -7,6 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { parseDriveFileId } from "@/lib/driveFileId";
+import LessonPreview from "@/components/LessonPreview";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { ssr: false });
 
@@ -75,7 +76,7 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
   const videoPreviewId = youtubeId ? extractYoutubeId(youtubeId) : "";
 
   return (
-    <div className="p-5 sm:p-8 max-w-3xl">
+    <div className="p-5 sm:p-8 max-w-6xl">
       <div className="flex items-center gap-3 mb-8">
         <Link href={`${base}/courses`} className="text-sm inline-flex items-center gap-1.5" style={{ color: "var(--foreground-secondary)" }}><ArrowLeft size={14} weight="bold" /> Courses</Link>
         <span style={{ color: "var(--foreground-muted)" }}>/</span>
@@ -92,7 +93,8 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
 
       <h1 className="text-2xl font-bold mb-8" style={{ color: "var(--foreground)" }}>Add New Lesson</h1>
 
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
+      <div className="space-y-6 max-w-3xl">
         <div className="card p-6 space-y-5">
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--foreground)" }}>Lesson Title *</label>
@@ -189,6 +191,15 @@ export default function NewLessonPage({ params }: { params: Promise<{ courseId: 
             Cancel
           </Link>
         </div>
+      </div>
+
+      <LessonPreview
+        title={title}
+        youtubeVideoId={videoPreviewId}
+        driveFileId={parseDriveFileId(driveInput)}
+        audioFileId={parseDriveFileId(audioDriveInput)}
+        notes={notes}
+      />
       </div>
     </div>
   );
