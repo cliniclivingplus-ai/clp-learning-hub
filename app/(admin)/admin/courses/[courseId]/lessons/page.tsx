@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import AssessmentBuilder from "@/components/AssessmentBuilder";
 import ResourceList, { type Resource } from "@/components/ResourceList";
+import CourseThumbnail from "@/components/CourseThumbnail";
 
 type Lesson = { id: string; title: string; slug: string; order: number; youtube_video_id: string; drive_file_id: string | null };
 type Module = { id: string; title: string; order: number; resources: Resource[]; lessons: Lesson[] };
@@ -31,7 +32,7 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
 
   const fetchData = async () => {
     const { data: courseData } = await supabase
-      .from("courses").select("id, title, published").eq("id", courseId).single();
+      .from("courses").select("id, title, published, thumbnail_url").eq("id", courseId).single();
     setCourse(courseData);
     const { data: modulesData } = await supabase
       .from("modules")
@@ -136,15 +137,22 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
       </div>
 
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
-            Course content
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--foreground-secondary)" }}>
-            {modules.length === 0
-              ? "Build the course by adding modules, then lessons inside them."
-              : `${modules.length} module${modules.length !== 1 ? "s" : ""} · ${totalLessons} lesson${totalLessons !== 1 ? "s" : ""}`}
-          </p>
+        <div className="flex items-start gap-4">
+          <CourseThumbnail
+            courseId={courseId}
+            thumbnailUrl={course?.thumbnail_url ?? null}
+            onChange={(url) => setCourse((prev: any) => ({ ...prev, thumbnail_url: url }))}
+          />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
+              Course content
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--foreground-secondary)" }}>
+              {modules.length === 0
+                ? "Build the course by adding modules, then lessons inside them."
+                : `${modules.length} module${modules.length !== 1 ? "s" : ""} · ${totalLessons} lesson${totalLessons !== 1 ? "s" : ""}`}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {totalLessons > 0 && (

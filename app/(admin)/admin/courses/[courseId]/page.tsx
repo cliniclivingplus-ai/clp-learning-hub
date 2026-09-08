@@ -7,6 +7,7 @@ import Link from "next/link";
 import QuizBuilder from "@/components/QuizBuilder";
 import AssessmentBuilder from "@/components/AssessmentBuilder";
 import ResourceList, { type Resource } from "@/components/ResourceList";
+import CourseThumbnail from "@/components/CourseThumbnail";
 
 type Lesson = { id: string; title: string; slug: string; order: number; youtube_video_id: string };
 type Module = { id: string; title: string; order: number; resources: Resource[]; lessons: Lesson[] };
@@ -24,7 +25,7 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
   const [publishing, setPublishing] = useState(false);
 
   const fetchData = async () => {
-    const { data: courseData } = await supabase.from("courses").select("id, title, published").eq("id", courseId).single();
+    const { data: courseData } = await supabase.from("courses").select("id, title, published, thumbnail_url").eq("id", courseId).single();
     setCourse(courseData);
     const { data: modulesData } = await supabase.from("modules")
       .select("id, title, order, resources(id, url, name, order_index), lessons(id, title, slug, order, youtube_video_id)")
@@ -85,9 +86,16 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
         <span className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{course?.title}</span>
       </div>
       <div className="flex items-center justify-between mb-8 mt-4">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Lessons</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--foreground-secondary)" }}>Add modules, lessons, quizzes and assessments</p>
+        <div className="flex items-center gap-4">
+          <CourseThumbnail
+            courseId={courseId}
+            thumbnailUrl={course?.thumbnail_url ?? null}
+            onChange={(url) => setCourse((prev: any) => ({ ...prev, thumbnail_url: url }))}
+          />
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Lessons</h1>
+            <p className="text-sm mt-1" style={{ color: "var(--foreground-secondary)" }}>Add modules, lessons, quizzes and assessments</p>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {course && (
