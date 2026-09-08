@@ -1,7 +1,7 @@
 "use client";
 import { use, useState, useEffect } from "react";
 import { useStaffBasePath } from "@/lib/useStaffBasePath";
-import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Eye } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import QuizBuilder from "@/components/QuizBuilder";
@@ -74,7 +74,14 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Lessons</h1>
           <p className="text-sm mt-1" style={{ color: "var(--foreground-secondary)" }}>Add modules, lessons, quizzes and assessments</p>
         </div>
-        
+        {modules.some(m => m.lessons.length > 0) && (
+          <Link
+            href={`${base}/courses/${courseId}/preview`}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white primary-gradient inline-flex items-center gap-1.5"
+          >
+            <Eye size={15} weight="bold" /> Preview course
+          </Link>
+        )}
       </div>
 
       <div className="space-y-4 mb-6">

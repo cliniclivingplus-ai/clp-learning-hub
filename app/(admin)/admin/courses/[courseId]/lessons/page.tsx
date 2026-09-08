@@ -3,7 +3,7 @@ import { use, useState, useEffect } from "react";
 import { useStaffBasePath } from "@/lib/useStaffBasePath";
 import {
   ArrowLeft, ArrowRight, Plus, Stack, PlayCircle, Notebook,
-  CaretDown, CaretRight, Trash, CheckCircle,
+  CaretDown, CaretRight, Trash, CheckCircle, Eye,
 } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -131,13 +131,23 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
               : `${modules.length} module${modules.length !== 1 ? "s" : ""} · ${totalLessons} lesson${totalLessons !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <Link
-          href={`${base}/courses/${courseId}`}
-          className="px-4 py-2 rounded-xl text-sm font-semibold border"
-          style={{ borderColor: "var(--border)", color: "var(--foreground-secondary)" }}
-        >
-          Course details
-        </Link>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {totalLessons > 0 && (
+            <Link
+              href={`${base}/courses/${courseId}/preview`}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white primary-gradient inline-flex items-center gap-1.5"
+            >
+              <Eye size={15} weight="bold" /> Preview course
+            </Link>
+          )}
+          <Link
+            href={`${base}/courses/${courseId}`}
+            className="px-4 py-2 rounded-xl text-sm font-semibold border"
+            style={{ borderColor: "var(--border)", color: "var(--foreground-secondary)" }}
+          >
+            Course details
+          </Link>
+        </div>
       </div>
 
       {/* Where you are in the build. Drops away once the course has content. */}
