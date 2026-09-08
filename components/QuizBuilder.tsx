@@ -54,6 +54,19 @@ export default function QuizBuilder({ lessonId, moduleId, label }: QuizBuilderPr
   const [newImage, setNewImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState("");
 
+  // Edit-in-place form for an existing question - mirrors the "new question"
+  // fields above, just seeded from the question being edited instead of blank.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editType, setEditType] = useState<QuestionType>("multiple_choice");
+  const [editQ, setEditQ] = useState("");
+  const [editOpts, setEditOpts] = useState<string[]>(["", "", "", ""]);
+  const [editCorrect, setEditCorrect] = useState("");
+  const [editChecked, setEditChecked] = useState<string[]>([]);
+  const [editImage, setEditImage] = useState<File | null>(null);
+  const [editImagePath, setEditImagePath] = useState<string | null>(null);
+  const [editImageError, setEditImageError] = useState("");
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => { fetchQuiz(); }, []);
 
   const fetchQuiz = async () => {
@@ -159,6 +172,101 @@ export default function QuizBuilder({ lessonId, moduleId, label }: QuizBuilderPr
     setQuestions(questions.filter((q) => q.id !== qid));
   };
 
+  const startEdit = (q: Question) => {
+    setShowForm(false);
+    setEditingId(q.id!);
+    setEditType(q.question_type);
+    setEditQ(q.question);
+    const opts = [...(q.options || [])];
+    while (opts.length < 4) opts.push("");
+    setEditOpts(opts);
+    if (q.question_type === "checkboxes") {
+      setEditCorrect("");
+      setEditChecked(decodeChoices(q.correct_answer));
+    } else {
+      setEditCorrect(q.correct_answer);
+      setEditChecked([]);
+    }
+    setEditImage(null);
+    setEditImagePath(q.image_path || null);
+    setEditImageError("");
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const changeEditType = (type: QuestionType) => {
+    setEditType(type);
+    setEditCorrect("");
+    setEditChecked([]);
+  };
+
+  const toggleEditChecked = (opt: string) => {
+    setEditChecked((prev) => (prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt]));
+  };
+
+  const updateEditOption = (index: number, value: string) => {
+    const previous = editOpts[index];
+    const updated = [...editOpts];
+    updated[index] = value;
+    setEditOpts(updated);
+    if (previous && editCorrect === previous) setEditCorrect(value);
+    if (previous) setEditChecked((prev) => prev.map((o) => (o === previous ? value : o)));
+  };
+
+  const handleChooseEditImage = (file: File | null) => {
+    setEditImageError("");
+    if (!file) { setEditImage(null); return; }
+    const problem = describeImageError(file);
+    if (problem) { setEditImageError(problem); return; }
+    setEditImage(file);
+  };
+
+  const editFilledOptions = editOpts.map((o) => o.trim()).filter(Boolean);
+
+  const canSaveEdit = (() => {
+    if (!editQ.trim()) return false;
+    if (editType === "short_answer") return !!editCorrect.trim();
+    if (editFilledOptions.length < 2) return false;
+    if (editType === "checkboxes") return editChecked.length > 0;
+    return !!editCorrect;
+  })();
+
+  const handleSaveEdit = async () => {
+    if (!canSaveEdit || !editingId) return;
+    setSaving(true);
+
+    let imagePath = editImagePath;
+    if (editImage) {
+      try {
+        imagePath = await uploadQuizImage(supabase, editImage);
+      } catch (e: any) {
+        setSaving(false);
+        setEditImageError(e?.message || "Could not upload the image.");
+        return;
+      }
+    }
+
+    const correct = editType === "checkboxes" ? encodeChoices(editChecked) : editCorrect.trim();
+
+    const { data, error } = await supabase
+      .from("quiz_questions")
+      .update({
+        question: editQ.trim(),
+        question_type: editType,
+        options: editType === "short_answer" ? [] : editFilledOptions,
+        correct_answer: correct,
+        image_path: imagePath,
+      })
+      .eq("id", editingId)
+      .select("id, question, question_type, options, correct_answer, image_path")
+      .single();
+
+    setSaving(false);
+    if (error) { alert("Could not save the question: " + error.message); return; }
+    setQuestions(questions.map((q) => (q.id === editingId ? (data as Question) : q)));
+    setEditingId(null);
+  };
+
   const toggleChecked = (opt: string) => {
     setNewChecked((prev) =>
       prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt]
@@ -195,7 +303,7 @@ export default function QuizBuilder({ lessonId, moduleId, label }: QuizBuilderPr
           </span>
         </div>
         <button
-          onClick={() => (showForm ? resetForm() : setShowForm(true))}
+          onClick={() => { cancelEdit(); showForm ? resetForm() : setShowForm(true); }}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg"
           style={{ background: "var(--primary-light)", color: "var(--primary)" }}
         >
@@ -205,48 +313,178 @@ export default function QuizBuilder({ lessonId, moduleId, label }: QuizBuilderPr
 
       {questions.length > 0 && (
         <div className="space-y-2 mb-4">
-          {questions.map((q, i) => (
-            <div
-              key={q.id}
-              className="rounded-xl p-3 flex items-start justify-between gap-2"
-              style={{ background: "var(--card-secondary)", border: "1px solid var(--border)" }}
-            >
-              <div className="flex-1 min-w-0">
-                {q.image_path && (
-                  <img
-                    src={quizImageUrl(q.image_path)}
-                    alt=""
-                    className="max-w-[220px] rounded-lg mb-2 border"
-                    style={{ borderColor: "var(--border)" }}
+          {questions.map((q, i) =>
+            editingId === q.id ? (
+              <div key={q.id} className="rounded-xl p-4" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+                <div className="mb-3">
+                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>Question</label>
+                  <input
+                    type="text"
+                    value={editQ}
+                    onChange={(e) => setEditQ(e.target.value)}
+                    placeholder="Enter your question"
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={inputStyle}
                   />
-                )}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                    {i + 1}. {q.question}
-                  </p>
-                  <span
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ background: "var(--accent-blue-light)", color: "var(--accent-blue)" }}
-                  >
-                    {QUESTION_TYPES.find((t) => t.value === q.question_type)?.label ?? q.question_type}
-                  </span>
                 </div>
-                <p className="text-xs mt-1" style={{ color: "var(--foreground-muted)" }}>
-                  {q.question_type !== "short_answer" && (q.options as string[]).length > 0 && (
-                    <>Options: {(q.options as string[]).join(", ")} · </>
+
+                <div className="mb-3">
+                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>
+                    Image <span className="font-normal" style={{ color: "var(--foreground-muted)" }}>(optional)</span>
+                  </label>
+                  {editImage ? (
+                    <div className="flex items-center gap-2">
+                      <img src={URL.createObjectURL(editImage)} alt="" className="max-w-[160px] rounded-lg border" style={{ borderColor: "var(--border)" }} />
+                      <button type="button" onClick={() => handleChooseEditImage(null)} aria-label="Remove image" style={{ color: "var(--foreground-muted)" }}>
+                        <X size={16} weight="bold" />
+                      </button>
+                    </div>
+                  ) : editImagePath ? (
+                    <div className="flex items-center gap-2">
+                      <img src={quizImageUrl(editImagePath)} alt="" className="max-w-[160px] rounded-lg border" style={{ borderColor: "var(--border)" }} />
+                      <button type="button" onClick={() => setEditImagePath(null)} aria-label="Remove image" style={{ color: "var(--foreground-muted)" }}>
+                        <X size={16} weight="bold" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer"
+                      style={{ background: "var(--card)", border: "1px dashed var(--border)", color: "var(--foreground-secondary)" }}
+                    >
+                      <ImageIcon size={15} weight="bold" />
+                      Attach an image
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleChooseEditImage(e.target.files?.[0] ?? null)} />
+                    </label>
                   )}
-                  Correct: <strong>{describeAnswer(q)}</strong>
-                </p>
+                  {editImageError && <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{editImageError}</p>}
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>Answer type</label>
+                  <select
+                    value={editType}
+                    onChange={(e) => changeEditType(e.target.value as QuestionType)}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={inputStyle}
+                  >
+                    {QUESTION_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {editType === "short_answer" ? (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>Expected answer</label>
+                    <input
+                      type="text"
+                      value={editCorrect}
+                      onChange={(e) => setEditCorrect(e.target.value)}
+                      placeholder="e.g. fibre"
+                      className="w-full px-3 py-2 rounded-lg border text-sm"
+                      style={inputStyle}
+                    />
+                  </div>
+                ) : (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>Options</label>
+                    <div className="space-y-2">
+                      {editOpts.map((opt, oi) => (
+                        <div key={oi} className="flex items-center gap-2">
+                          <input
+                            type={editType === "checkboxes" ? "checkbox" : "radio"}
+                            name={`edit-correct-${q.id}`}
+                            disabled={!opt.trim()}
+                            checked={
+                              editType === "checkboxes"
+                                ? editChecked.includes(opt) && !!opt
+                                : editCorrect === opt && !!opt
+                            }
+                            onChange={() => {
+                              if (!opt.trim()) return;
+                              if (editType === "checkboxes") toggleEditChecked(opt);
+                              else setEditCorrect(opt);
+                            }}
+                          />
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => updateEditOption(oi, e.target.value)}
+                            placeholder={`Option ${oi + 1}`}
+                            className="flex-1 px-3 py-1.5 rounded-lg border text-sm"
+                            style={inputStyle}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditOpts([...editOpts, ""])}
+                      className="text-xs font-semibold mt-1"
+                      style={{ color: "var(--primary)" }}
+                    >
+                      + Add option
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={saving || !canSaveEdit}
+                    className="px-4 py-2 rounded-lg text-white text-sm font-semibold primary-gradient disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : "Save Question"}
+                  </button>
+                  <button onClick={cancelEdit} className="text-xs font-semibold" style={{ color: "var(--foreground-secondary)" }}>
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => handleDeleteQuestion(q.id!)}
-                className="text-xs flex-shrink-0"
-                style={{ color: "var(--danger)" }}
+            ) : (
+              <div
+                key={q.id}
+                className="rounded-xl p-3 flex items-start justify-between gap-2"
+                style={{ background: "var(--card-secondary)", border: "1px solid var(--border)" }}
               >
-                Delete
-              </button>
-            </div>
-          ))}
+                <div className="flex-1 min-w-0">
+                  {q.image_path && (
+                    <img
+                      src={quizImageUrl(q.image_path)}
+                      alt=""
+                      className="max-w-[220px] rounded-lg mb-2 border"
+                      style={{ borderColor: "var(--border)" }}
+                    />
+                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                      {i + 1}. {q.question}
+                    </p>
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: "var(--accent-blue-light)", color: "var(--accent-blue)" }}
+                    >
+                      {QUESTION_TYPES.find((t) => t.value === q.question_type)?.label ?? q.question_type}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: "var(--foreground-muted)" }}>
+                    {q.question_type !== "short_answer" && (q.options as string[]).length > 0 && (
+                      <>Options: {(q.options as string[]).join(", ")} · </>
+                    )}
+                    Correct: <strong>{describeAnswer(q)}</strong>
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button onClick={() => startEdit(q)} className="text-xs font-semibold" style={{ color: "var(--primary)" }}>
+                    Edit
+                  </button>
+                  <button onClick={() => handleDeleteQuestion(q.id!)} className="text-xs" style={{ color: "var(--danger)" }}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )
+          )}
         </div>
       )}
 
