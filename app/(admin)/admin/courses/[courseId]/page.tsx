@@ -21,6 +21,7 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [addingModule, setAddingModule] = useState(false);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   const fetchData = async () => {
     const { data: courseData } = await supabase.from("courses").select("id, title, published").eq("id", courseId).single();
@@ -60,6 +61,20 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
     setModules(prev => prev.map(m => m.id === moduleId ? { ...m, resources } : m));
   };
 
+  const handleTogglePublish = async () => {
+    if (!course) return;
+    const nextPublished = !course.published;
+    setPublishing(true);
+    const res = await fetch(`/api/courses/${courseId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published: nextPublished }),
+    });
+    setPublishing(false);
+    if (!res.ok) { const data = await res.json().catch(() => ({})); alert(data.message || "Could not update the course."); return; }
+    setCourse((prev: any) => ({ ...prev, published: nextPublished }));
+  };
+
   if (loading) return <div className="p-8 text-sm" style={{ color: "var(--foreground-muted)" }}>Loading...</div>;
 
   return (
@@ -74,14 +89,28 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Lessons</h1>
           <p className="text-sm mt-1" style={{ color: "var(--foreground-secondary)" }}>Add modules, lessons, quizzes and assessments</p>
         </div>
-        {modules.some(m => m.lessons.length > 0) && (
-          <Link
-            href={`${base}/courses/${courseId}/preview`}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-white primary-gradient inline-flex items-center gap-1.5"
-          >
-            <Eye size={15} weight="bold" /> Preview course
-          </Link>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {course && (
+            <button
+              onClick={handleTogglePublish}
+              disabled={publishing}
+              className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+              style={course.published
+                ? { border: "1px solid var(--border)", color: "var(--foreground-secondary)" }
+                : { background: "var(--primary)", color: "var(--on-primary)" }}
+            >
+              {publishing ? "Saving..." : course.published ? "Unpublish" : "Publish course"}
+            </button>
+          )}
+          {modules.some(m => m.lessons.length > 0) && (
+            <Link
+              href={`${base}/courses/${courseId}/preview`}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white primary-gradient inline-flex items-center gap-1.5"
+            >
+              <Eye size={15} weight="bold" /> Preview course
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4 mb-6">

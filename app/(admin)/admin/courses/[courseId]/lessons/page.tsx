@@ -24,6 +24,7 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [addingModule, setAddingModule] = useState(false);
   const [showModuleForm, setShowModuleForm] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   // Module quizzes stay closed until deliberately opened - they are the last
   // step, and an always-open builder drowns out adding lessons.
   const [openQuiz, setOpenQuiz] = useState<string | null>(null);
@@ -64,6 +65,20 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
   const handleDeleteLesson = async (lessonId: string) => {
     if (!confirm("Delete this lesson?")) return;
     await supabase.from("lessons").delete().eq("id", lessonId); fetchData();
+  };
+
+  const handleTogglePublish = async () => {
+    if (!course) return;
+    const nextPublished = !course.published;
+    setPublishing(true);
+    const res = await fetch(`/api/courses/${courseId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published: nextPublished }),
+    });
+    setPublishing(false);
+    if (!res.ok) { const data = await res.json().catch(() => ({})); alert(data.message || "Could not update the course."); return; }
+    setCourse((prev: any) => ({ ...prev, published: nextPublished }));
   };
 
   const handleModuleResourcesChange = (moduleId: string, resources: Resource[]) => {
@@ -392,15 +407,27 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
               <p className="text-sm" style={{ color: "var(--foreground-secondary)" }}>
                 {course?.published
                   ? "This course is live for learners."
-                  : "This course is still a draft. Publish it from Course details when it is ready."}
+                  : "This course is still a draft - learners can't see it yet."}
               </p>
-              <Link
-                href={`${base}/courses/${courseId}`}
-                className="text-sm font-semibold inline-flex items-center gap-1.5"
-                style={{ color: "var(--primary)" }}
-              >
-                Course details <ArrowRight size={14} weight="bold" />
-              </Link>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={handleTogglePublish}
+                  disabled={publishing}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+                  style={course?.published
+                    ? { border: "1px solid var(--border)", color: "var(--foreground-secondary)" }
+                    : { background: "var(--primary)", color: "var(--on-primary)" }}
+                >
+                  {publishing ? "Saving..." : course?.published ? "Unpublish" : "Publish course"}
+                </button>
+                <Link
+                  href={`${base}/courses/${courseId}`}
+                  className="text-sm font-semibold inline-flex items-center gap-1.5"
+                  style={{ color: "var(--primary)" }}
+                >
+                  Course details <ArrowRight size={14} weight="bold" />
+                </Link>
+              </div>
             </div>
           )}
         </>
