@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { ArrowLeft, PlayCircle } from "@phosphor-icons/react/ssr";
+import { ArrowLeft, PlayCircle, BookOpen, Stack } from "@phosphor-icons/react/ssr";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import EnrollButton from "./EnrollButton";
-import { categoryPillStyle } from "@/lib/categoryColor";
+import { categoryPillStyle, accentFor } from "@/lib/categoryColor";
 import CourseReviews from "@/components/CourseReviews";
 import { Stars } from "@/components/StarRating";
 
@@ -77,28 +77,50 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ c
 
   const modules = curriculumModules.sort((a, b) => a.order - b.order);
   const totalLessons = modules.reduce((acc, m) => acc + (m.lessons?.length || 0), 0);
+  const accent = accentFor(course.category);
   return (
     <div className="max-w-4xl mx-auto px-6 py-14">
       <Link href="/courses" className="text-sm mb-8 inline-flex items-center gap-1.5" style={{ color: "var(--foreground-secondary)" }}><ArrowLeft size={14} weight="bold" /> All courses</Link>
-      <div className="card p-8 mb-8">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="flex-1">
-            {course.category && <span className="text-xs font-semibold px-2 py-1 rounded-full" style={categoryPillStyle(course.category)}>{course.category}</span>}
-            <h1 className="text-2xl font-bold mt-3 mb-3" style={{ color: "var(--foreground)" }}>{course.title}</h1>
-            <p style={{ color: "var(--foreground-secondary)" }}>{course.description}</p>
-            <div className="mt-4 flex items-center gap-3 flex-wrap text-sm" style={{ color: "var(--foreground-muted)" }}>
-              <span>{modules.length} module{modules.length !== 1 ? "s" : ""} · {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}</span>
-              {(course.review_count ?? 0) > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <Stars value={Number(course.avg_rating) || 0} size={13} />
-                  <span style={{ color: "var(--foreground-secondary)" }}>{(Number(course.avg_rating) || 0).toFixed(1)}</span>
-                  <span>({course.review_count})</span>
-                </span>
-              )}
-            </div>
+      <div className="card overflow-hidden mb-8">
+        <div
+          className="h-48 sm:h-64 flex items-center justify-center relative overflow-hidden"
+          style={{ background: `linear-gradient(135deg, var(--accent-${accent}-light) 0%, var(--card-secondary) 100%)` }}
+        >
+          {course.thumbnail_url ? (
+            <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <BookOpen size={40} weight="duotone" style={{ color: `var(--accent-${accent})`, opacity: 0.75 }} />
+          )}
+        </div>
+
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+            {course.category ? (
+              <span className="text-xs font-semibold px-2 py-1 rounded-full" style={categoryPillStyle(course.category)}>{course.category}</span>
+            ) : <span />}
+            {(course.review_count ?? 0) > 0 && (
+              <span className="flex items-center gap-1.5 text-sm">
+                <Stars value={Number(course.avg_rating) || 0} size={13} />
+                <span style={{ color: "var(--foreground-secondary)" }}>{(Number(course.avg_rating) || 0).toFixed(1)}</span>
+                <span style={{ color: "var(--foreground-muted)" }}>({course.review_count})</span>
+              </span>
+            )}
           </div>
-          <div className="flex-shrink-0 w-full md:w-auto">
-            <EnrollButton courseId={course.id} courseSlug={course.slug} isLoggedIn={!!user} alreadyEnrolled={alreadyEnrolled} />
+
+          <h1 className="text-2xl sm:text-3xl font-bold mb-3" style={{ color: "var(--foreground)" }}>{course.title}</h1>
+          <p className="leading-relaxed" style={{ color: "var(--foreground-secondary)" }}>{course.description}</p>
+
+          <div
+            className="mt-6 pt-6 flex items-center justify-between gap-4 flex-wrap"
+            style={{ borderTop: "1px solid var(--border-light)" }}
+          >
+            <span className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--foreground-muted)" }}>
+              <Stack size={15} />
+              {modules.length} module{modules.length !== 1 ? "s" : ""} · {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}
+            </span>
+            <div className="w-full sm:w-auto">
+              <EnrollButton courseId={course.id} courseSlug={course.slug} isLoggedIn={!!user} alreadyEnrolled={alreadyEnrolled} />
+            </div>
           </div>
         </div>
       </div>
