@@ -5,6 +5,7 @@ import {
   ArrowLeft, ArrowRight, Plus, Stack, PlayCircle, Notebook,
   CaretDown, CaretRight, Trash, CheckCircle, Eye,
 } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import AssessmentBuilder from "@/components/AssessmentBuilder";
@@ -17,6 +18,7 @@ type Module = { id: string; title: string; order: number; resources: Resource[];
 export default function LessonsPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = use(params);
   const base = useStaffBasePath();
+  const router = useRouter();
   const supabase = createClient();
 
   const [course, setCourse] = useState<any>(null);
@@ -26,14 +28,28 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
   const [addingModule, setAddingModule] = useState(false);
   const [showModuleForm, setShowModuleForm] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsTitle, setSettingsTitle] = useState("");
+  const [settingsSlug, setSettingsSlug] = useState("");
+  const [settingsDescription, setSettingsDescription] = useState("");
+  const [settingsCategory, setSettingsCategory] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
+  const [deleting, setDeleting] = useState(false);
   // Module quizzes stay closed until deliberately opened - they are the last
   // step, and an always-open builder drowns out adding lessons.
   const [openQuiz, setOpenQuiz] = useState<string | null>(null);
 
   const fetchData = async () => {
     const { data: courseData } = await supabase
-      .from("courses").select("id, title, published, thumbnail_url").eq("id", courseId).single();
+      .from("courses").select("id, title, slug, description, category, published, thumbnail_url").eq("id", courseId).single();
     setCourse(courseData);
+    if (courseData) {
+      setSettingsTitle(courseData.title || "");
+      setSettingsSlug(courseData.slug || "");
+      setSettingsDescription(courseData.description || "");
+      setSettingsCategory(courseData.category || "");
+    }
     const { data: modulesData } = await supabase
       .from("modules")
       .select("id, title, order, resources(id, url, name, order_index), lessons(id, title, slug, order, youtube_video_id, drive_file_id)")
@@ -84,6 +100,47 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
 
   const handleModuleResourcesChange = (moduleId: string, resources: Resource[]) => {
     setModules(prev => prev.map(m => m.id === moduleId ? { ...m, resources } : m));
+  };
+
+  const handleSaveSettings = async () => {
+    if (!settingsTitle.trim() || !settingsSlug.trim()) return;
+    setSavingSettings(true);
+    setSettingsError("");
+    const res = await fetch(`/api/courses/${courseId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: settingsTitle.trim(),
+        slug: settingsSlug.trim(),
+        description: settingsDescription.trim() || null,
+        category: settingsCategory.trim() || null,
+      }),
+    });
+    setSavingSettings(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setSettingsError(data.message || "Could not save changes.");
+      return;
+    }
+    setCourse((prev: any) => ({
+      ...prev, title: settingsTitle.trim(), slug: settingsSlug.trim(),
+      description: settingsDescription.trim() || null, category: settingsCategory.trim() || null,
+    }));
+    setShowSettings(false);
+  };
+
+  const handleDeleteCourse = async () => {
+    if (!confirm(`Delete "${course?.title}"? This permanently removes every module, lesson, quiz, and enrollment for this course. This cannot be undone.`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/courses/${courseId}`, { method: "DELETE" });
+    setDeleting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.message || "Could not delete the course.");
+      return;
+    }
+    router.push(`${base}/courses`);
+    router.refresh();
   };
 
   const inputStyle = { borderColor: "var(--border)", background: "var(--background)", color: "var(--foreground)" };
@@ -155,6 +212,13 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="px-4 py-2 rounded-xl text-sm font-semibold border"
+            style={{ borderColor: "var(--border)", color: "var(--foreground-secondary)" }}
+          >
+            {showSettings ? "Hide settings" : "Course settings"}
+          </button>
           {totalLessons > 0 && (
             <Link
               href={`${base}/courses/${courseId}/preview`}
@@ -163,15 +227,52 @@ export default function LessonsPage({ params }: { params: Promise<{ courseId: st
               <Eye size={15} weight="bold" /> Preview course
             </Link>
           )}
-          <Link
-            href={`${base}/courses/${courseId}`}
-            className="px-4 py-2 rounded-xl text-sm font-semibold border"
-            style={{ borderColor: "var(--border)", color: "var(--foreground-secondary)" }}
-          >
-            Course details
-          </Link>
         </div>
       </div>
+
+      {showSettings && (
+        <div className="card p-6 mb-6 space-y-4">
+          <h3 className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>Course settings</h3>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>Course Title</label>
+            <input type="text" value={settingsTitle} onChange={e => setSettingsTitle(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border text-sm" style={inputStyle} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>URL Slug</label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm px-3 py-2.5 rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--card-secondary)", color: "var(--foreground-muted)" }}>/courses/</span>
+              <input type="text" value={settingsSlug} onChange={e => setSettingsSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))}
+                className="flex-1 px-4 py-2.5 rounded-xl border text-sm" style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>Description</label>
+            <textarea value={settingsDescription} onChange={e => setSettingsDescription(e.target.value)} rows={3}
+              className="w-full px-4 py-2.5 rounded-xl border text-sm resize-none" style={inputStyle} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>Category</label>
+            <input type="text" value={settingsCategory} onChange={e => setSettingsCategory(e.target.value)}
+              placeholder="e.g. Heart Health"
+              className="w-full px-4 py-2.5 rounded-xl border text-sm" style={inputStyle} />
+          </div>
+          {settingsError && <p className="text-xs" style={{ color: "var(--danger)" }}>{settingsError}</p>}
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <button onClick={handleSaveSettings} disabled={savingSettings || !settingsTitle.trim() || !settingsSlug.trim()}
+              className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold primary-gradient disabled:opacity-60">
+              {savingSettings ? "Saving..." : "Save changes"}
+            </button>
+            {base === "/admin" && (
+              <button onClick={handleDeleteCourse} disabled={deleting}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"
+                style={{ color: "var(--danger)" }}>
+                <Trash size={15} weight="bold" /> {deleting ? "Deleting..." : "Delete course"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Where you are in the build. Drops away once the course has content. */}
       {step < 3 && (
