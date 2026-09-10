@@ -11,6 +11,7 @@ export default async function InstructorLayout({ children }: { children: React.R
   const navItems: NavItem[] = [
     { href: "/instructor", label: "Dashboard", icon: "dashboard" },
     { href: "/instructor/courses", label: "My Courses", icon: "courses" },
+    { href: "/instructor/guide", label: "Add a Course", icon: "guide" },
     { href: "/instructor/learners", label: "Learners", icon: "people" },
     { href: "/instructor/assignments", label: "Grading", icon: "grading" },
     { href: "/instructor/training", label: "Staff Training", icon: "training" },
