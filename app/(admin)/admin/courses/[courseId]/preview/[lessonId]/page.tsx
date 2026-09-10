@@ -1,17 +1,17 @@
 "use client";
 import { use, useState, useEffect } from "react";
 import { useStaffBasePath } from "@/lib/useStaffBasePath";
-import { ArrowLeft, ArrowRight, Eye, FilePdf, Image as ImageIcon, Notebook, ClipboardText } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Eye, FilePdf, Image as ImageIcon, ClipboardText } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { QUESTION_TYPES, decodeChoices } from "@/lib/questionTypes";
-import { quizImageUrl } from "@/lib/quizImages";
+import QuizBlock from "@/components/QuizBlock";
 
 /**
- * The read-only "what a learner sees" view of a single lesson, reached from
- * the full-course preview - video/audio through the staff-only Drive proxy
- * (no enrollment exists to check), notes as saved, and the quiz/assignment
- * shown for review only - nothing here can be answered or submitted.
+ * The "what a learner sees" view of a single lesson, reached from the
+ * full-course preview - video/audio through the staff-only Drive proxy (no
+ * enrollment exists to check), notes as saved, and the actual quiz UI
+ * (answerable, scored locally) rather than an answer key - the point is to
+ * see what a learner experiences, not to read the answers off a sheet.
  */
 export default function LessonPreviewPage({ params }: { params: Promise<{ courseId: string; lessonId: string }> }) {
   const { courseId, lessonId } = use(params);
@@ -125,28 +125,13 @@ export default function LessonPreviewPage({ params }: { params: Promise<{ course
       )}
 
       {quiz && quiz.quiz_questions?.length > 0 && (
-        <div className="card p-6 mb-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Notebook size={16} weight="duotone" />
-            <h2 className="font-semibold" style={{ color: "var(--foreground)" }}>{quiz.title}</h2>
-          </div>
-          <div className="space-y-3">
-            {quiz.quiz_questions.map((q: any, i: number) => (
-              <div key={q.id} className="rounded-xl p-3" style={{ background: "var(--card-secondary)", border: "1px solid var(--border)" }}>
-                {q.image_path && (
-                  <img src={quizImageUrl(q.image_path)} alt="" className="max-w-[220px] rounded-lg mb-2 border" style={{ borderColor: "var(--border)" }} />
-                )}
-                <p className="text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>{i + 1}. {q.question}</p>
-                <p className="text-xs" style={{ color: "var(--foreground-muted)" }}>
-                  {q.question_type !== "short_answer" && (q.options || []).length > 0 && <>Options: {(q.options as string[]).join(", ")} · </>}
-                  Correct: <strong>
-                    {q.question_type === "checkboxes" ? decodeChoices(q.correct_answer).join(", ") : q.correct_answer}
-                  </strong>
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <QuizBlock
+          quizId={quiz.id}
+          title={quiz.title}
+          questions={quiz.quiz_questions}
+          patientId=""
+          mode="preview"
+        />
       )}
 
       {assignment && (

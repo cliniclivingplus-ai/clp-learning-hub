@@ -23,12 +23,18 @@ interface QuizBlockProps {
   title: string;
   questions: Question[];
   patientId: string;
+  /**
+   * "preview" scores locally and never calls the submit API - used by the
+   * staff course-preview screen, which has no real enrollment/attempt to
+   * record against. Defaults to the normal graded flow.
+   */
+  mode?: "live" | "preview";
 }
 
 /** string for multiple choice and short answer, string[] for checkboxes. */
 type Answer = string | string[];
 
-export default function QuizBlock({ quizId, title, questions }: QuizBlockProps) {
+export default function QuizBlock({ quizId, title, questions, mode = "live" }: QuizBlockProps) {
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
@@ -42,6 +48,14 @@ export default function QuizBlock({ quizId, title, questions }: QuizBlockProps) 
 
   const handleSubmit = async () => {
     if (!allAnswered) return;
+
+    if (mode === "preview") {
+      const correctCount = questions.filter((q) => isCorrect(typeOf(q), q.correct_answer, answers[q.id])).length;
+      setScore(correctCount);
+      setSubmitted(true);
+      return;
+    }
+
     setLoading(true);
     const res = await fetch("/api/quiz/submit", {
       method: "POST",
